@@ -4,7 +4,7 @@
 
 Turn your DxDiag report into a **beautiful, interactive HTML system profile** with one click.
 
-![Version](https://img.shields.io/badge/version-5.0-blue)
+![Version](https://img.shields.io/badge/version-6.0-blue)
 ![Python](https://img.shields.io/badge/Python-3.8%2B-brightgreen)
 ![Platform](https://img.shields.io/badge/Platform-Windows-blue)
 
