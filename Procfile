@@ -1,1 +1,1 @@
-web: gunicorn app:laptop_extractor.py
+web: python laptop_extractor.py
