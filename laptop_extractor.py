@@ -29,9 +29,6 @@ import urllib.parse
 import traceback
 from datetime import datetime
 
-import os
-PORT = int(os.environ.get("PORT", 7474))
-
 # ─────────────────────────────────────────────
 #  PARSER  — reads DxDiag text or docx
 # ─────────────────────────────────────────────
@@ -1882,7 +1879,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
 #  ENTRY POINT
 # ─────────────────────────────────────────────
 
-PORT = 7474
+import os
+PORT = int(os.environ.get("PORT", 7474))
 
 def main():
     print("\n" + "═"*58)
