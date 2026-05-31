@@ -1,4 +1,1 @@
-flask
-requests
 python-docx
-gunicorn
