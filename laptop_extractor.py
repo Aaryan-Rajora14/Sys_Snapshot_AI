@@ -1880,7 +1880,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 # ─────────────────────────────────────────────
 
 import os
-PORT = int(os.environ.get("PORT", 7474))
+PORT = int(os.environ.get("PORT", 5000))
 
 def main():
     print("\n" + "═"*58)
