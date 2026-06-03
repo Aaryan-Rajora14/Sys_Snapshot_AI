@@ -1,16 +1,3 @@
-
-http.server
-threading
-webbrowser
-json
-re
-os
-io
-time
-pathlib
-urllib.parse
-traceback
-datetime
 flask
 requests
 python-docx

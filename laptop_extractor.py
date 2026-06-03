@@ -194,7 +194,7 @@ def _detect_ports_from_model(model: str, processor: str) -> dict:
         "left": [],
         "right": [],
         "wireless": [],
-        "note": ""
+        "note": "⚠ Port layout is estimated from the model database — actual ports may differ by sub-variant or region. Verify with your laptop's official spec sheet."
     }
 
     # Acer ALG AL15G series
@@ -320,22 +320,18 @@ def _detect_ports_from_model(model: str, processor: str) -> dict:
         ports["summary"] = {"USB-C": "2", "USB-A": "3", "HDMI": "1", "Audio": "1", "LAN": "1"}
         return ports
 
-    # Generic gaming laptop fallback
+    # Generic gaming laptop fallback — show only what virtually all laptops have, with a clear warning
     ports["left"] = [
         ("🔌", "amber", "DC-in Jack", "AC Power Adapter"),
-        ("🌐", "green", "RJ-45 Ethernet", "Gigabit LAN"),
         ("🖥️", "cyan", "HDMI", "External Display"),
-        ("⚡", "green", "USB-C", "High-speed data"),
     ]
     ports["right"] = [
-        ("💻", "cyan", "USB 3.x Type-A × 2", "SuperSpeed USB"),
-        ("💻", "amber", "USB 2.0 Type-A", "Peripheral"),
+        ("💻", "cyan", "USB Type-A", "USB port(s)"),
         ("🎧", "purple", "3.5mm Audio Jack", "Combo Jack"),
-        ("🔒", "muted", "Security Slot", "Physical lock"),
     ]
-    ports["wireless"] = ["Wi-Fi 6 / Wi-Fi 5", "Bluetooth 5.x"]
-    ports["summary"] = {"USB-C": "1", "USB-A": "3", "HDMI": "1", "Audio": "1", "LAN": "1"}
-    ports["note"] = "⚠ Port layout is estimated — model not in database. Verify with manufacturer specs."
+    ports["wireless"] = ["Wi-Fi (see DxDiag network section)", "Bluetooth"]
+    ports["summary"] = {"USB-A": "?", "HDMI": "?", "Audio": "?"}
+    ports["note"] = "⚠ Model not in database — port layout is NOT confirmed. Verify all port types and counts with your laptop's official spec sheet."
     return ports
 
 
@@ -466,18 +462,23 @@ def parse_dxdiag(text: str) -> dict:
         gpu1 = discrete[0]
         gpu2 = integrated[0]
         data["_gpu2_found"] = True
+        data["_gpu1_is_discrete"] = True
     elif discrete:
         gpu1 = discrete[0]
         gpu2 = {}
         data["_gpu2_found"] = False
+        data["_gpu1_is_discrete"] = True
     elif integrated:
+        # Only an integrated GPU found — label it correctly, do NOT call it dedicated
         gpu1 = integrated[0]
         gpu2 = {}
         data["_gpu2_found"] = False
+        data["_gpu1_is_discrete"] = False
     else:
         gpu1 = {}
         gpu2 = {}
         data["_gpu2_found"] = False
+        data["_gpu1_is_discrete"] = False
 
     data["_gpu1"] = gpu1
     data["_gpu2"] = gpu2
@@ -665,6 +666,8 @@ def generate_html(data: dict) -> str:
     devices = data.get("_devices", {})
     cpu = data.get("_cpu", {})
 
+    gpu1_is_discrete = data.get("_gpu1_is_discrete", False)
+
     # GPU rendering
     gpu1_brand = _gpu_brand(gpu1.get("name", ""))
     gpu2_brand = _gpu_brand(gpu2.get("name", "")) if gpu2_found else "—"
@@ -684,17 +687,30 @@ def generate_html(data: dict) -> str:
     gpu2_name = gpu2.get("name", "Not Detected") if gpu2_found else "Not Detected"
     gpu2_mem  = gpu2.get("display_mem", "N/A") if gpu2_found else "N/A"
 
-    # GPU1 is dedicated, GPU2 is integrated
-    gpu1_role_class = "dedicated"
-    gpu2_role_class = "integrated"
+    # GPU role labels depend on whether a discrete GPU is actually present
+    if gpu1_is_discrete:
+        gpu1_role_tag  = "DEDICATED"
+        gpu1_role_class = "dedicated"
+        gpu1_card_label = "Dedicated GPU"
+        gpu1_card_tag   = f'Discrete · {gpu1_brand}'
+        gpu2_role_tag  = "INTEGRATED"
+        gpu2_role_class = "integrated"
+    else:
+        # Only integrated GPU found — label it correctly
+        gpu1_role_tag  = "INTEGRATED"
+        gpu1_role_class = "integrated"
+        gpu1_card_label = "GPU (Integrated)"
+        gpu1_card_tag   = f'Integrated · {gpu1_brand}'
+        gpu2_role_tag  = "—"
+        gpu2_role_class = "integrated"
 
     # Ports HTML
     left_ports_html  = _port_items_html(ports.get("left", []))
     right_ports_html = _port_items_html(ports.get("right", []))
     summary_html     = _summary_cards_html(ports.get("summary", {}))
     det_html         = _det_grid_html(devices)
-    port_note        = ports.get("note", "")
-    port_note_html   = f'<div class="info-banner">ℹ {port_note}</div>' if port_note else ""
+    port_note        = ports.get("note", "⚠ Port layout is estimated — verify with your laptop's official spec sheet.")
+    port_note_html   = f'<div class="info-banner">ℹ {port_note}</div>'
 
     wireless_items = ports.get("wireless", [])
     wireless_html = ""
@@ -714,22 +730,141 @@ def generate_html(data: dict) -> str:
 
     # Performance — estimate from GPU name
     def _est_fps(game: str, gpu: str) -> str:
-        g = gpu.lower()
-        presets = {
-            "RTX 3050": {"cs2": "200+", "aaa": "55–70", "gta": "75–90"},
-            "RTX 3060": {"cs2": "300+", "aaa": "70–90", "gta": "90–120"},
-            "RTX 4060": {"cs2": "350+", "aaa": "80–110", "gta": "110–140"},
-            "RTX 3070": {"cs2": "300+", "aaa": "90–110", "gta": "110–130"},
-            "GTX 1650": {"cs2": "150+", "aaa": "40–55", "gta": "60–75"},
-            "Intel UHD": {"cs2": "80+",  "aaa": "20–35", "gta": "30–45"},
-            "Iris Xe":   {"cs2": "90+",  "aaa": "25–40", "gta": "35–50"},
-        }
-        for model, fps in presets.items():
-            if model.lower() in g:
+        # Normalize: strip trademark/registered symbols so "Intel(R) UHD" matches "intel uhd"
+        g = re.sub(r'\(r\)|\(tm\)|\(c\)', ' ', gpu.lower())
+        g = re.sub(r'\s+', ' ', g).strip()
+        # Each entry: (substring to match, fps dict)
+        # Ordered from most specific to least specific
+        presets = [
+            # RTX 50 series (laptop)
+            ("rtx 5090", {"cs2": "500+", "aaa": "160+", "gta": "200+"}),
+            ("rtx 5080", {"cs2": "500+", "aaa": "140+", "gta": "180+"}),
+            ("rtx 5070 ti", {"cs2": "450+", "aaa": "130+", "gta": "170+"}),
+            ("rtx 5070", {"cs2": "400+", "aaa": "120+", "gta": "150+"}),
+            ("rtx 5060 ti", {"cs2": "380+", "aaa": "110+", "gta": "140+"}),
+            ("rtx 5060", {"cs2": "350+", "aaa": "100+", "gta": "130+"}),
+            # RTX 40 series (laptop)
+            ("rtx 4090", {"cs2": "500+", "aaa": "150+", "gta": "180+"}),
+            ("rtx 4080", {"cs2": "450+", "aaa": "130+", "gta": "160+"}),
+            ("rtx 4070 ti", {"cs2": "420+", "aaa": "120+", "gta": "150+"}),
+            ("rtx 4070", {"cs2": "400+", "aaa": "110+", "gta": "140+"}),
+            ("rtx 4060 ti", {"cs2": "380+", "aaa": "100+", "gta": "130+"}),
+            ("rtx 4060", {"cs2": "350+", "aaa": "80–110", "gta": "110–140"}),
+            ("rtx 4050", {"cs2": "280+", "aaa": "65–85",  "gta": "85–110"}),
+            # RTX 30 series (laptop)
+            ("rtx 3080 ti", {"cs2": "400+", "aaa": "120+", "gta": "140+"}),
+            ("rtx 3080", {"cs2": "380+", "aaa": "110+", "gta": "130+"}),
+            ("rtx 3070 ti", {"cs2": "350+", "aaa": "100+", "gta": "120+"}),
+            ("rtx 3070", {"cs2": "300+", "aaa": "90–110", "gta": "110–130"}),
+            ("rtx 3060", {"cs2": "300+", "aaa": "70–90",  "gta": "90–120"}),
+            ("rtx 3050 ti", {"cs2": "220+", "aaa": "58–75", "gta": "78–95"}),
+            ("rtx 3050", {"cs2": "200+", "aaa": "55–70",  "gta": "75–90"}),
+            # RTX 20 series
+            ("rtx 2080 ti", {"cs2": "350+", "aaa": "100+", "gta": "120+"}),
+            ("rtx 2080", {"cs2": "320+", "aaa": "90+",   "gta": "110+"}),
+            ("rtx 2070", {"cs2": "280+", "aaa": "80+",   "gta": "100+"}),
+            ("rtx 2060", {"cs2": "240+", "aaa": "70–85", "gta": "85–110"}),
+            ("rtx 2050", {"cs2": "180+", "aaa": "50–65", "gta": "65–80"}),
+            # GTX 16 series
+            ("gtx 1660 ti", {"cs2": "200+", "aaa": "55–70", "gta": "70–90"}),
+            ("gtx 1660 super", {"cs2": "200+", "aaa": "55–70", "gta": "70–90"}),
+            ("gtx 1660", {"cs2": "190+", "aaa": "50–65", "gta": "65–85"}),
+            ("gtx 1650 ti", {"cs2": "160+", "aaa": "42–58", "gta": "62–78"}),
+            ("gtx 1650 super", {"cs2": "170+", "aaa": "45–60", "gta": "65–80"}),
+            ("gtx 1650", {"cs2": "150+", "aaa": "40–55",  "gta": "60–75"}),
+            # GTX 10 series
+            ("gtx 1080 ti", {"cs2": "280+", "aaa": "80+",   "gta": "100+"}),
+            ("gtx 1080", {"cs2": "260+", "aaa": "75+",   "gta": "90+"}),
+            ("gtx 1070 ti", {"cs2": "230+", "aaa": "65+",   "gta": "80+"}),
+            ("gtx 1070", {"cs2": "220+", "aaa": "60+",   "gta": "75+"}),
+            ("gtx 1060", {"cs2": "180+", "aaa": "45–60", "gta": "60–75"}),
+            ("gtx 1050 ti", {"cs2": "130+", "aaa": "30–45", "gta": "45–60"}),
+            ("gtx 1050", {"cs2": "110+", "aaa": "25–38", "gta": "38–52"}),
+            # AMD RX 7000 series
+            ("rx 7900", {"cs2": "450+", "aaa": "130+", "gta": "160+"}),
+            ("rx 7800", {"cs2": "380+", "aaa": "110+", "gta": "140+"}),
+            ("rx 7700", {"cs2": "350+", "aaa": "100+", "gta": "125+"}),
+            ("rx 7600", {"cs2": "280+", "aaa": "80+",  "gta": "100+"}),
+            # AMD RX 6000 series
+            ("rx 6800", {"cs2": "380+", "aaa": "110+", "gta": "130+"}),
+            ("rx 6700", {"cs2": "300+", "aaa": "90+",  "gta": "110+"}),
+            ("rx 6600", {"cs2": "260+", "aaa": "75+",  "gta": "95+"}),
+            ("rx 6500", {"cs2": "180+", "aaa": "50–65","gta": "65–80"}),
+            # AMD RX 5000 series
+            ("rx 5700", {"cs2": "280+", "aaa": "80+",  "gta": "100+"}),
+            ("rx 5600", {"cs2": "240+", "aaa": "70+",  "gta": "90+"}),
+            ("rx 5500", {"cs2": "180+", "aaa": "50–65","gta": "65–80"}),
+            # Intel Arc
+            ("arc a770", {"cs2": "220+", "aaa": "60–80","gta": "80–100"}),
+            ("arc a750", {"cs2": "200+", "aaa": "55–75","gta": "75–95"}),
+            ("arc a580", {"cs2": "180+", "aaa": "50–65","gta": "65–80"}),
+            ("arc a380", {"cs2": "130+", "aaa": "35–50","gta": "50–65"}),
+            # Integrated GPUs — Intel Iris / UHD / HD series
+            ("iris xe",    {"cs2": "90+",  "aaa": "25–40", "gta": "35–50"}),
+            ("iris plus",  {"cs2": "70+",  "aaa": "18–30", "gta": "25–38"}),
+            ("iris pro",   {"cs2": "75+",  "aaa": "20–32", "gta": "28–40"}),
+            ("uhd 770",    {"cs2": "85+",  "aaa": "22–35", "gta": "30–42"}),
+            ("uhd 750",    {"cs2": "80+",  "aaa": "20–32", "gta": "28–40"}),
+            ("uhd 730",    {"cs2": "75+",  "aaa": "18–30", "gta": "26–36"}),
+            ("uhd 630",    {"cs2": "70+",  "aaa": "16–26", "gta": "22–32"}),
+            ("uhd 620",    {"cs2": "65+",  "aaa": "14–22", "gta": "18–28"}),
+            ("uhd 610",    {"cs2": "60+",  "aaa": "12–20", "gta": "16–24"}),
+            ("intel uhd",  {"cs2": "75+",  "aaa": "18–30", "gta": "25–38"}),
+            # Intel HD Graphics (older — pre-UHD naming, e.g. HD 620, HD 630, HD 520)
+            ("hd graphics 630", {"cs2": "65+",  "aaa": "14–22", "gta": "18–28"}),
+            ("hd graphics 620", {"cs2": "60+",  "aaa": "12–20", "gta": "16–24"}),
+            ("hd graphics 520", {"cs2": "55+",  "aaa": "10–18", "gta": "14–20"}),
+            ("hd graphics 510", {"cs2": "50+",  "aaa": "9–15",  "gta": "12–18"}),
+            ("hd graphics 500", {"cs2": "45+",  "aaa": "8–14",  "gta": "10–16"}),
+            ("hd graphics 400", {"cs2": "40+",  "aaa": "7–12",  "gta": "9–14"}),
+            ("hd graphics",     {"cs2": "55+",  "aaa": "10–18", "gta": "14–22"}),  # catch-all HD
+            ("intel hd",        {"cs2": "55+",  "aaa": "10–18", "gta": "14–22"}),  # catch-all HD
+            # AMD RDNA3 integrated (Radeon 7xx M / 8xx M)
+            ("radeon 890m",  {"cs2": "150+", "aaa": "40–60", "gta": "60–80"}),
+            ("radeon 880m",  {"cs2": "140+", "aaa": "38–55", "gta": "55–75"}),
+            ("radeon 760m",  {"cs2": "130+", "aaa": "35–50", "gta": "50–65"}),
+            ("radeon 740m",  {"cs2": "110+", "aaa": "28–42", "gta": "40–55"}),
+            # AMD RDNA2 integrated (Radeon 6xx M)
+            ("radeon 680m",  {"cs2": "110+", "aaa": "30–45", "gta": "40–55"}),
+            ("radeon 660m",  {"cs2": "95+",  "aaa": "25–38", "gta": "35–48"}),
+            # AMD Vega integrated (Ryzen 4000/5000 series)
+            ("vega 11",  {"cs2": "80+",  "aaa": "20–32", "gta": "28–40"}),
+            ("vega 10",  {"cs2": "75+",  "aaa": "18–30", "gta": "26–36"}),
+            ("vega 8",   {"cs2": "70+",  "aaa": "18–28", "gta": "25–35"}),
+            ("vega 7",   {"cs2": "65+",  "aaa": "16–26", "gta": "22–32"}),
+            ("vega 6",   {"cs2": "60+",  "aaa": "14–22", "gta": "18–28"}),
+            ("vega 3",   {"cs2": "50+",  "aaa": "10–16", "gta": "14–20"}),
+            # AMD GCN integrated (older Ryzen / A-series APUs — e.g. Radeon 610M, 620, 530, 520)
+            ("radeon 640m",  {"cs2": "65+",  "aaa": "14–22", "gta": "18–26"}),
+            ("radeon 630m",  {"cs2": "60+",  "aaa": "12–20", "gta": "16–24"}),
+            ("radeon 620m",  {"cs2": "55+",  "aaa": "10–18", "gta": "14–22"}),
+            ("radeon 610m",  {"cs2": "50+",  "aaa": "9–15",  "gta": "12–18"}),
+            ("radeon 610",   {"cs2": "50+",  "aaa": "9–15",  "gta": "12–18"}),
+            ("radeon 540",   {"cs2": "55+",  "aaa": "10–18", "gta": "14–20"}),
+            ("radeon 530",   {"cs2": "50+",  "aaa": "9–15",  "gta": "12–18"}),
+            ("radeon 520",   {"cs2": "45+",  "aaa": "8–14",  "gta": "10–16"}),
+            ("radeon rx 540", {"cs2": "80+",  "aaa": "20–32", "gta": "28–38"}),
+            ("radeon rx 530", {"cs2": "70+",  "aaa": "16–26", "gta": "22–30"}),
+            # AMD Radeon generic catch-all (covers any un-matched Radeon integrated)
+            ("amd radeon",   {"cs2": "55+",  "aaa": "10–20", "gta": "14–24"}),
+            ("radeon graphics", {"cs2": "60+","aaa": "12–22", "gta": "16–26"}),
+        ]
+        for pattern, fps in presets:
+            if pattern in g:
                 return fps.get(game, "—")
+        # Final brand-level fallbacks so we never show — for a known GPU brand
+        if "nvidia" in g or "geforce" in g:
+            return "~varies"
+        if "radeon" in g or "amd" in g:
+            return "~varies"
+        if "intel" in g:
+            return "~varies"
         return "—"
 
     gpu1_name_str = gpu1.get("name", "")
+    # Normalize for matching (remove trademark symbols)
+    gpu1_name_norm = re.sub(r'\(r\)|\(tm\)|\(c\)', ' ', gpu1_name_str.lower())
+    gpu1_name_norm = re.sub(r'\s+', ' ', gpu1_name_norm).strip()
     fps_cs2  = _est_fps("cs2",  gpu1_name_str)
     fps_aaa  = _est_fps("aaa",  gpu1_name_str)
     fps_gta  = _est_fps("gta",  gpu1_name_str)
@@ -752,7 +887,7 @@ def generate_html(data: dict) -> str:
     }
     gpu_tgp = "N/A"
     for k, v in gpu_tgp_map.items():
-        if k.lower() in gpu1_name_str.lower():
+        if k.lower() in gpu1_name_norm:
             gpu_tgp = v
             break
 
@@ -766,15 +901,81 @@ def generate_html(data: dict) -> str:
         ("Thermal Design",  72, "p"),
     ]
 
-    # Adjust bars based on actual GPU
-    if "rtx 4060" in gpu1_name_str.lower():
+    # Adjust bars based on actual GPU (g_lower is already normalized — no trademark symbols)
+    g_lower = gpu1_name_norm
+    if any(x in g_lower for x in ["rtx 4090", "rtx 4080"]):
+        perf_bars[1] = ("GPU Gaming", 98, "c")
+    elif any(x in g_lower for x in ["rtx 4070 ti", "rtx 4070"]):
+        perf_bars[1] = ("GPU Gaming", 94, "c")
+    elif "rtx 4060 ti" in g_lower:
+        perf_bars[1] = ("GPU Gaming", 90, "c")
+    elif "rtx 4060" in g_lower:
         perf_bars[1] = ("GPU Gaming", 88, "c")
-    elif "rtx 3060" in gpu1_name_str.lower():
+    elif "rtx 4050" in g_lower:
+        perf_bars[1] = ("GPU Gaming", 80, "c")
+    elif any(x in g_lower for x in ["rtx 3080", "rtx 3070 ti"]):
+        perf_bars[1] = ("GPU Gaming", 88, "c")
+    elif "rtx 3070" in g_lower:
+        perf_bars[1] = ("GPU Gaming", 83, "c")
+    elif "rtx 3060" in g_lower:
         perf_bars[1] = ("GPU Gaming", 78, "c")
-    elif "gtx 1650" in gpu1_name_str.lower():
-        perf_bars[1] = ("GPU Gaming", 55, "c")
-    elif "intel uhd" in gpu1_name_str.lower() or "iris" in gpu1_name_str.lower():
+    elif "rtx 3050 ti" in g_lower:
+        perf_bars[1] = ("GPU Gaming", 68, "c")
+    elif "rtx 3050" in g_lower:
+        perf_bars[1] = ("GPU Gaming", 62, "c")
+    elif any(x in g_lower for x in ["gtx 1660 ti", "gtx 1660 super"]):
+        perf_bars[1] = ("GPU Gaming", 60, "c")
+    elif "gtx 1660" in g_lower:
+        perf_bars[1] = ("GPU Gaming", 57, "c")
+    elif any(x in g_lower for x in ["gtx 1650 super", "gtx 1650 ti"]):
+        perf_bars[1] = ("GPU Gaming", 52, "c")
+    elif "gtx 1650" in g_lower:
+        perf_bars[1] = ("GPU Gaming", 48, "c")
+    elif "gtx 1050 ti" in g_lower:
+        perf_bars[1] = ("GPU Gaming", 35, "c")
+    elif "gtx 1050" in g_lower:
         perf_bars[1] = ("GPU Gaming", 30, "c")
+    # AMD RDNA3 integrated
+    elif any(x in g_lower for x in ["radeon 890m", "radeon 880m"]):
+        perf_bars[1] = ("GPU Gaming", 38, "c")
+    elif any(x in g_lower for x in ["radeon 760m", "radeon 740m"]):
+        perf_bars[1] = ("GPU Gaming", 32, "c")
+    # AMD RDNA2 integrated
+    elif any(x in g_lower for x in ["radeon 680m", "radeon 660m"]):
+        perf_bars[1] = ("GPU Gaming", 28, "c")
+    # AMD Vega integrated
+    elif any(x in g_lower for x in ["vega 11", "vega 10", "vega 8"]):
+        perf_bars[1] = ("GPU Gaming", 22, "c")
+    elif any(x in g_lower for x in ["vega 7", "vega 6", "vega 3"]):
+        perf_bars[1] = ("GPU Gaming", 18, "c")
+    # AMD GCN integrated (Radeon 6xxM / 5xx / 4xx)
+    elif any(x in g_lower for x in ["radeon 640m", "radeon 630m", "radeon 620m"]):
+        perf_bars[1] = ("GPU Gaming", 16, "c")
+    elif any(x in g_lower for x in ["radeon 610m", "radeon 610", "radeon 540", "radeon 530", "radeon 520"]):
+        perf_bars[1] = ("GPU Gaming", 14, "c")
+    elif "amd radeon" in g_lower or "radeon graphics" in g_lower:
+        perf_bars[1] = ("GPU Gaming", 15, "c")
+    # Intel Iris Xe
+    elif "iris xe" in g_lower:
+        perf_bars[1] = ("GPU Gaming", 28, "c")
+    elif any(x in g_lower for x in ["iris plus", "iris pro"]):
+        perf_bars[1] = ("GPU Gaming", 20, "c")
+    elif "iris" in g_lower:
+        perf_bars[1] = ("GPU Gaming", 22, "c")
+    # Intel UHD (modern)
+    elif any(x in g_lower for x in ["uhd 770", "uhd 750"]):
+        perf_bars[1] = ("GPU Gaming", 22, "c")
+    elif any(x in g_lower for x in ["uhd 730", "uhd 630", "uhd 620", "uhd 610"]):
+        perf_bars[1] = ("GPU Gaming", 18, "c")
+    elif "intel uhd" in g_lower or "uhd graphics" in g_lower:
+        perf_bars[1] = ("GPU Gaming", 20, "c")
+    # Intel HD Graphics (older — pre-UHD naming)
+    elif any(x in g_lower for x in ["hd graphics 630", "hd graphics 620"]):
+        perf_bars[1] = ("GPU Gaming", 16, "c")
+    elif any(x in g_lower for x in ["hd graphics 520", "hd graphics 510"]):
+        perf_bars[1] = ("GPU Gaming", 14, "c")
+    elif any(x in g_lower for x in ["hd graphics", "intel hd"]):
+        perf_bars[1] = ("GPU Gaming", 15, "c")
 
     perf_bars_html = "\n".join(
         f'<div class="bar-row"><div class="bar-name">{name}</div>'
@@ -1091,10 +1292,10 @@ body::before{{content:'';position:fixed;inset:0;background:radial-gradient(ellip
     </div>
     <div class="card">
       <span class="card-icon">🎮</span>
-      <div class="card-label">Dedicated GPU</div>
+      <div class="card-label">{gpu1_card_label}</div>
       <div class="card-val">{data.get('gpu1_name','N/A')[:30]}</div>
       <div class="card-sub">VRAM: {data.get('dedicated_mem','N/A')} · Total: {data.get('display_mem','N/A')}</div>
-      <span class="tag green">Discrete · {gpu1_brand}</span>
+      <span class="tag green">{gpu1_card_tag}</span>
     </div>
     <div class="card">
       <span class="card-icon">📺</span>
@@ -1133,32 +1334,32 @@ body::before{{content:'';position:fixed;inset:0;background:radial-gradient(ellip
     <div class="page-header-icon">🎮</div>
     <div class="page-header-text">
       <h2>GPU &amp; Display</h2>
-      <p>Dedicated GPU (Primary) shown left · Integrated GPU (Secondary) shown right. All DxDiag driver fields extracted.</p>
+    <p>{'Dedicated GPU (Primary) shown left · Integrated GPU (Secondary) shown right.' if gpu1_is_discrete else 'Only an Integrated GPU was detected in this DxDiag.'} All DxDiag driver fields extracted.</p>
     </div>
   </div>
 
   <div class="gpu-row">
-    <!-- PRIMARY: DEDICATED GPU (NVIDIA/AMD) -->
+    <!-- PRIMARY GPU -->
     <div class="gpu-card primary">
       <div class="gpu-header">
         <div class="gpu-header-left">
           <div class="gpu-brand primary">{gpu1_brand}</div>
           <div class="gpu-name">{gpu1.get('name','N/A')}</div>
         </div>
-        <span class="gpu-role-tag dedicated">DEDICATED</span>
+        <span class="gpu-role-tag {gpu1_role_class}">{gpu1_role_tag}</span>
       </div>
       <div class="gpu-mem-line primary">Display Mem: {gpu1.get('display_mem','N/A')} · VRAM: {gpu1.get('dedicated_mem','N/A')} · {gpu1.get('hybrid_gpu','N/A')}</div>
       {gpu1_rows}
     </div>
 
-    <!-- SECONDARY: INTEGRATED GPU (Intel/AMD iGPU) -->
+    <!-- SECONDARY GPU -->
     <div class="gpu-card secondary">
       <div class="gpu-header">
         <div class="gpu-header-left">
           <div class="gpu-brand secondary">{gpu2_brand}</div>
           <div class="gpu-name">{gpu2_name}</div>
         </div>
-        <span class="gpu-role-tag integrated">INTEGRATED</span>
+        <span class="gpu-role-tag {gpu2_role_class}">{gpu2_role_tag}</span>
       </div>
       <div class="gpu-mem-line secondary">Display Mem: {gpu2_mem} · MUX Target: {data.get('mux_target','N/A')}</div>
       {gpu2_body}
