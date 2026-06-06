@@ -409,6 +409,31 @@ def _extract_cpu_details(processor_str: str) -> dict:
     return cpu
 
 
+def _detect_ddr_type(text: str, processor: str) -> tuple:
+    """
+    Detect RAM DDR generation strictly from the DxDiag text.
+    Returns (ddr_string, is_detected).
+    is_detected=True  -> found explicitly in the DxDiag file (trustworthy).
+    is_detected=False -> not found in text; caller should show "Not detected".
+
+    CPU-generation heuristics are intentionally NOT used: the same CPU model
+    (e.g. i7-13700H) ships with DDR4 or DDR5 depending on the OEM board,
+    so any guess based on CPU alone is frequently wrong.
+    """
+    # Search for explicit DDR keyword anywhere in the DxDiag text.
+    # Order matters: match the most specific variants first so LPDDR5X
+    # is not swallowed by the shorter DDR5 pattern.
+    ddr_m = re.search(
+        r'\b(LPDDR5X|LPDDR5|LPDDR4X|LPDDR4|DDR5|DDR4|DDR3L|DDR3|DDR2|DDR)\b',
+        text, re.IGNORECASE
+    )
+    if ddr_m:
+        return ddr_m.group(1).upper(), True
+
+    # Not found in text - return sentinel so the UI shows a neutral label.
+    return 'Unknown', False
+
+
 def parse_dxdiag(text: str) -> dict:
     """Extract all useful fields from DxDiag output."""
     data = {}
@@ -527,6 +552,11 @@ def parse_dxdiag(text: str) -> dict:
         data["ram_gb"] = f"{mb // 1024} GB" if mb >= 1024 else f"{mb} MB"
     else:
         data["ram_gb"] = data["memory"]
+
+    # DDR type detection
+    ddr_type, ddr_confirmed = _detect_ddr_type(text, data["processor"])
+    data["ram_ddr"]           = ddr_type
+    data["ram_ddr_confirmed"] = ddr_confirmed          # True = found in text, False = estimated
 
     # ── Display size ───────────────────────────────────────────────────────────
     data["display_size"] = "15.6\""
@@ -727,7 +757,19 @@ def generate_html(data: dict) -> str:
   <div class="wc-desc">{desc}</div>
 </div>"""
 
-    # Performance — estimate from GPU name
+    # RAM DDR display helpers
+    ram_ddr       = data.get("ram_ddr", "Unknown")
+    ram_confirmed = data.get("ram_ddr_confirmed", False)
+    # Only show the DDR type when it was found in the actual DxDiag text.
+    # If not found, show a neutral "Not in DxDiag" — never guess.
+    if ram_confirmed:
+        ram_ddr_label = ram_ddr               # e.g. "DDR4", "LPDDR5"
+        ram_tag_text  = ram_ddr
+    else:
+        ram_ddr_label = "Not in DxDiag"      # honest: DxDiag doesn't report it
+        ram_tag_text  = "RAM"                  # generic tag fallback
+
+
     def _est_fps(game: str, gpu: str) -> str:
         # Normalize: strip trademark/registered symbols so "Intel(R) UHD" matches "intel uhd"
         g = re.sub(r'\(r\)|\(tm\)|\(c\)', ' ', gpu.lower())
@@ -1191,6 +1233,9 @@ body::before{{content:'';position:fixed;inset:0;background:radial-gradient(ellip
 .footer-logo{{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:800;letter-spacing:4px;color:var(--muted);text-transform:uppercase}}
 .footer-time{{margin-top:5px;font-family:'Share Tech Mono',monospace;font-size:10px;color:rgba(100,116,139,0.4)}}
 
+/* ── MOBILE TAB BAR ── */
+.mobile-tabbar{{display:none}}
+
 @media(max-width:860px){{
   .hero{{grid-template-columns:1fr}}.laptop-visual{{order:-1}}
   .cards-3,.cards-4{{grid-template-columns:1fr 1fr}}
@@ -1201,6 +1246,53 @@ body::before{{content:'';position:fixed;inset:0;background:radial-gradient(ellip
   .thermal-grid{{grid-template-columns:1fr 1fr}}
   .port-summary{{grid-template-columns:repeat(3,1fr)}}
   .wireless-row{{grid-template-columns:1fr}}
+
+  /* Hide desktop nav items on mobile */
+  .nav-tabs{{display:none}}
+  .nav-right{{display:none}}
+  .navbar{{padding:0 16px;height:52px}}
+
+  /* Mobile tab bar */
+  .mobile-tabbar{{
+    display:flex;
+    position:sticky;
+    top:52px;
+    z-index:99;
+    background:rgba(6,8,16,0.97);
+    backdrop-filter:blur(20px);
+    border-bottom:2px solid var(--border);
+    overflow-x:auto;
+    scrollbar-width:none;
+    -webkit-overflow-scrolling:touch;
+  }}
+  .mobile-tabbar::-webkit-scrollbar{{display:none}}
+  .mob-tab{{
+    flex:1;
+    min-width:56px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    padding:8px 6px 7px;
+    font-family:'Share Tech Mono',monospace;
+    font-size:8px;
+    letter-spacing:0.5px;
+    text-transform:uppercase;
+    color:var(--muted);
+    background:none;
+    border:none;
+    border-bottom:2px solid transparent;
+    margin-bottom:-2px;
+    cursor:pointer;
+    transition:color .2s,border-color .2s;
+    white-space:nowrap;
+    gap:4px;
+  }}
+  .mob-tab .mt-icon{{font-size:19px;line-height:1}}
+  .mob-tab .mt-label{{font-size:7.5px;margin-top:2px}}
+  .mob-tab.active{{color:var(--green);border-bottom-color:var(--green)}}
+  .mob-tab:hover{{color:var(--text)}}
+  .wrap{{padding:0 14px 60px}}
 }}
 </style>
 </head>
@@ -1208,14 +1300,33 @@ body::before{{content:'';position:fixed;inset:0;background:radial-gradient(ellip
 <nav class="navbar">
   <div class="nav-brand">{data.get('manufacturer','SYSTEM')} <span>PROFILE</span></div>
   <div class="nav-tabs">
-    <button class="nav-tab active" onclick="switchTab('overview')">Overview</button>
-    <button class="nav-tab" onclick="switchTab('gpu')">GPU &amp; Display</button>
-    <button class="nav-tab" onclick="switchTab('ports')">Ports &amp; I/O</button>
-    <button class="nav-tab" onclick="switchTab('performance')">Performance</button>
-    <button class="nav-tab" onclick="switchTab('system')">System</button>
+    <button class="nav-tab active" onclick="switchTab('overview')">🏠 Overview</button>
+    <button class="nav-tab" onclick="switchTab('gpu')">🎮 GPU &amp; Display</button>
+    <button class="nav-tab" onclick="switchTab('ports')">🔌 Ports &amp; I/O</button>
+    <button class="nav-tab" onclick="switchTab('performance')">📊 Performance</button>
+    <button class="nav-tab" onclick="switchTab('system')">⚙️ System</button>
   </div>
   <div class="nav-right"><span class="status-dot"></span>Report Loaded</div>
 </nav>
+
+<!-- Mobile tab bar (only visible on narrow screens) -->
+<div class="mobile-tabbar" id="mobile-tabbar">
+  <button class="mob-tab active" onclick="switchTab('overview')">
+    <span class="mt-icon">🏠</span><span class="mt-label">Overview</span>
+  </button>
+  <button class="mob-tab" onclick="switchTab('gpu')">
+    <span class="mt-icon">🎮</span><span class="mt-label">GPU</span>
+  </button>
+  <button class="mob-tab" onclick="switchTab('ports')">
+    <span class="mt-icon">🔌</span><span class="mt-label">Ports</span>
+  </button>
+  <button class="mob-tab" onclick="switchTab('performance')">
+    <span class="mt-icon">📊</span><span class="mt-label">Perf</span>
+  </button>
+  <button class="mob-tab" onclick="switchTab('system')">
+    <span class="mt-icon">⚙️</span><span class="mt-label">System</span>
+  </button>
+</div>
 
 <!-- ══════ OVERVIEW ══════ -->
 <div class="page active" id="page-overview">
@@ -1230,7 +1341,7 @@ body::before{{content:'';position:fixed;inset:0;background:radial-gradient(ellip
         BIOS · {data.get('bios','N/A')}
       </p>
       <div class="hero-stats">
-        <div class="hstat"><div class="hstat-val">{data.get('ram_gb','?')}</div><div class="hstat-label">RAM</div></div>
+        <div class="hstat"><div class="hstat-val">{data.get('ram_gb','?')}</div><div class="hstat-label">RAM · {ram_tag_text}</div></div>
         <div class="hstat"><div class="hstat-val">{data.get('refresh','?')} Hz</div><div class="hstat-label">Refresh</div></div>
         <div class="hstat"><div class="hstat-val">{data.get('res_w','?')}×{data.get('res_h','?')}</div><div class="hstat-label">Resolution</div></div>
         <div class="hstat"><div class="hstat-val">{cpu.get('logical','?')}</div><div class="hstat-label">CPU Threads</div></div>
@@ -1286,8 +1397,8 @@ body::before{{content:'';position:fixed;inset:0;background:radial-gradient(ellip
       <span class="card-icon">🧠</span>
       <div class="card-label">Memory</div>
       <div class="card-val big">{data.get('ram_gb','N/A')}</div>
-      <div class="card-sub">Available: {data.get('available_mem','N/A')}</div>
-      <span class="tag cyan">RAM</span>
+      <div class="card-sub">{ram_ddr_label} · Available: {data.get('available_mem','N/A')}</div>
+      <span class="tag cyan">{ram_tag_text}</span>
     </div>
     <div class="card">
       <span class="card-icon">🎮</span>
@@ -1469,7 +1580,7 @@ body::before{{content:'';position:fixed;inset:0;background:radial-gradient(ellip
     <div class="perf-stat">
       <div class="perf-stat-label">RAM</div>
       <div class="perf-stat-val" style="color:#a78bfa">{data.get('ram_gb','?')}</div>
-      <div class="perf-stat-sub">Available: {data.get('available_mem','N/A')}</div>
+      <div class="perf-stat-sub">{ram_ddr_label} · Available: {data.get('available_mem','N/A')}</div>
     </div>
   </div>
 
@@ -1541,7 +1652,7 @@ body::before{{content:'';position:fixed;inset:0;background:radial-gradient(ellip
         <tr><td>L3 Cache</td><td>{cpu.get('cache','N/A')}</td></tr>
         <tr><td>GPU (Discrete)</td><td>{data.get('gpu1_name','N/A')} · VRAM: {data.get('dedicated_mem','N/A')} · Total: {data.get('display_mem','N/A')}</td></tr>
         <tr><td>GPU (Integrated)</td><td>{gpu2_name} · {gpu2_mem}</td></tr>
-        <tr><td>RAM</td><td>{data.get('ram_gb','N/A')} · Available: {data.get('available_mem','N/A')}</td></tr>
+        <tr><td>RAM</td><td>{data.get('ram_gb','N/A')} {ram_ddr_label} · Available: {data.get('available_mem','N/A')}</td></tr>
         <tr><td>Display</td><td>{data.get('res_w','?')}×{data.get('res_h','?')} · {data.get('refresh','?')}Hz · {data.get('monitor_id','N/A')}</td></tr>
         <tr><td>Operating System</td><td>{data.get('os','N/A')[:80]}</td></tr>
         <tr><td>DirectX</td><td>{data.get('directx','N/A')} · WDDM {data.get('wddm','N/A')}</td></tr>
@@ -1628,7 +1739,7 @@ body::before{{content:'';position:fixed;inset:0;background:radial-gradient(ellip
     <div class="sys-item"><div class="sys-k">OS</div><div class="sys-v">{data.get('os','N/A')[:40]}</div></div>
     <div class="sys-item"><div class="sys-k">BIOS</div><div class="sys-v">{data.get('bios','N/A')}</div></div>
     <div class="sys-item"><div class="sys-k">Processor</div><div class="sys-v">{data.get('processor','N/A')[:40]}</div></div>
-    <div class="sys-item"><div class="sys-k">Memory</div><div class="sys-v">{data.get('memory','N/A')}</div></div>
+    <div class="sys-item"><div class="sys-k">Memory</div><div class="sys-v">{data.get('memory','N/A')} · {ram_ddr_label}</div></div>
     <div class="sys-item"><div class="sys-k">Page File</div><div class="sys-v">{data.get('page_file','N/A')[:35]}</div></div>
     <div class="sys-item"><div class="sys-k">DirectX</div><div class="sys-v">{data.get('directx','N/A')}</div></div>
     <div class="sys-item"><div class="sys-k">DPI Setting</div><div class="sys-v">{data.get('dpi','N/A')}</div></div>
@@ -1660,9 +1771,12 @@ body::before{{content:'';position:fixed;inset:0;background:radial-gradient(ellip
 function switchTab(name){{
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.mob-tab').forEach(t=>t.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
   const tabs=['overview','gpu','ports','performance','system'];
-  document.querySelectorAll('.nav-tab')[tabs.indexOf(name)].classList.add('active');
+  const idx = tabs.indexOf(name);
+  document.querySelectorAll('.nav-tab')[idx].classList.add('active');
+  document.querySelectorAll('.mob-tab')[idx].classList.add('active');
   window.scrollTo({{top:0,behavior:'smooth'}});
 }}
 </script>
