@@ -29,10 +29,6 @@ import urllib.parse
 import traceback
 from datetime import datetime
 
-# ─────────────────────────────────────────────
-#  PARSER  — reads DxDiag text or docx
-# ─────────────────────────────────────────────
-
 def _gpu_brand(name: str) -> str:
     n = name.lower()
     if "nvidia" in n: return "NVIDIA"
