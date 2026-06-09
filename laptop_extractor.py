@@ -2103,6 +2103,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
+        
+        # === Google Ads.txt Verification ===
+        if parsed.path == "/ads.txt":
+            ads_content = "google.com, pub-2657651974679200, DIRECT, f08c47fec0942fa0"
+            self._send(200, "text/plain", ads_content.encode())
+            return
+        # ===================================
+
         if parsed.path in ("/", ""):
             self._send(200, "text/html", APP_HTML.encode())
         elif parsed.path == "/open":
@@ -2115,7 +2123,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self._send(404, "text/plain", b"File not found")
         else:
             self._send(404, "text/plain", b"Not found")
-
+            
     def do_POST(self):
         if self.path == "/upload":
             try:
