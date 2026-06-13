@@ -29,6 +29,10 @@ import urllib.parse
 import traceback
 from datetime import datetime
 
+# ─────────────────────────────────────────────
+#  PARSER  — reads DxDiag text or docx
+# ─────────────────────────────────────────────
+
 def _gpu_brand(name: str) -> str:
     n = name.lower()
     if "nvidia" in n: return "NVIDIA"
@@ -1792,7 +1796,9 @@ APP_HTML = r"""<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="google-adsense-account" content="ca-pub-2657651974670200">
 <title>DxDiag Extractor v5</title>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2657651974670200" crossorigin="anonymous"></script>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Share+Tech+Mono&family=Syne:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -2099,16 +2105,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
-        
-        # === Google Ads.txt Verification ===
-        if parsed.path == "/ads.txt":
-            ads_content = "google.com, pub-2657651974679200, DIRECT, f08c47fec0942fa0"
-            self._send(200, "text/plain", ads_content.encode())
-            return
-        # ===================================
-
         if parsed.path in ("/", ""):
             self._send(200, "text/html", APP_HTML.encode())
+        elif parsed.path == "/ads.txt":
+            ads_content = b"google.com, pub-2657651974670200, DIRECT, f08c47fec0942fa0\n"
+            self._send(200, "text/plain", ads_content)
         elif parsed.path == "/open":
             qs = urllib.parse.parse_qs(parsed.query)
             fp = qs.get("path", [""])[0]
@@ -2119,7 +2120,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self._send(404, "text/plain", b"File not found")
         else:
             self._send(404, "text/plain", b"Not found")
-            
+
     def do_POST(self):
         if self.path == "/upload":
             try:
