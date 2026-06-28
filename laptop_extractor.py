@@ -284,7 +284,7 @@ def _detect_ports_from_model(model: str, processor: str) -> dict:
         ports["summary"] = {"USB-C": "2", "USB-A": "4", "HDMI": "1", "TB4": "1", "Audio": "1"}
         return ports
 
-    # Dell G-series / Inspiron Gaming
+  
     if "dell" in m or "inspiron" in m or "vostro" in m or "latitude" in m:
         ports["left"] = [
             ("🔌", "amber", "DC-in Jack", "130W AC Adapter"),
@@ -302,7 +302,6 @@ def _detect_ports_from_model(model: str, processor: str) -> dict:
         ports["summary"] = {"USB-C": "1", "USB-A": "3", "HDMI": "1", "Audio": "1", "LAN": "1"}
         return ports
 
-    # HP Pavilion / OMEN
     if "hp" in m or "omen" in m or "pavilion" in m or "victus" in m:
         ports["left"] = [
             ("🔌", "amber", "DC-in Jack", "150W AC Adapter"),
@@ -320,7 +319,6 @@ def _detect_ports_from_model(model: str, processor: str) -> dict:
         ports["summary"] = {"USB-C": "2", "USB-A": "3", "HDMI": "1", "Audio": "1", "LAN": "1"}
         return ports
 
-    # Generic gaming laptop fallback — show only what virtually all laptops have, with a clear warning
     ports["left"] = [
         ("🔌", "amber", "DC-in Jack", "AC Power Adapter"),
         ("🖥️", "cyan", "HDMI", "External Display"),
