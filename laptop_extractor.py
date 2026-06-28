@@ -74,7 +74,7 @@ def _extract_gpu_fields(src: str) -> dict:
         m = re.search(pat, src, re.IGNORECASE | re.MULTILINE)
         return m.group(1).strip() if m else default
 
-    # CPU count / GHz — sometimes appear near GPU blocks; skip
+    
     return {
         "name":           f(r"Card name:\s*(.+)"),
         "manufacturer":   f(r"Manufacturer:\s*(.+)"),
@@ -147,7 +147,6 @@ def _extract_devices(text: str) -> dict:
         "network": [],
     }
 
-    # Sound devices
     sound_section = re.search(
         r"Sound Devices\s*[-]+(.+?)(?=\n[ \t]*[-]{5,}|\Z)",
         text, re.IGNORECASE | re.DOTALL
