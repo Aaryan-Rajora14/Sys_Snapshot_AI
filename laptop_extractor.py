@@ -219,7 +219,6 @@ def _detect_ports_from_model(model: str, processor: str) -> dict:
         ports["summary"] = {"USB-C": "2", "USB-A": "3", "HDMI": "1", "Audio": "1", "LAN": "1"}
         return ports
 
-    # Acer Nitro 5
     if "nitro" in m and "5" in m:
         ports["left"] = [
             ("🔌", "amber", "DC-in Jack", "135W/180W AC Adapter"),
@@ -236,7 +235,6 @@ def _detect_ports_from_model(model: str, processor: str) -> dict:
         ports["summary"] = {"USB-C": "1", "USB-A": "3", "HDMI": "1", "Audio": "1", "LAN": "1"}
         return ports
 
-    # ASUS ROG / TUF
     if "rog" in m or "tuf" in m:
         ports["left"] = [
             ("🔌", "amber", "DC-in Jack", "240W AC Adapter"),
@@ -253,7 +251,6 @@ def _detect_ports_from_model(model: str, processor: str) -> dict:
         ports["summary"] = {"USB-C": "1", "USB-A": "3", "HDMI": "1", "Audio": "1", "TB4": "1"}
         return ports
 
-    # MSI Gaming
     if "msi" in m or "gf" in m or "gp" in m:
         ports["left"] = [
             ("🔌", "amber", "DC-in Jack", "180W AC Adapter"),
@@ -270,7 +267,6 @@ def _detect_ports_from_model(model: str, processor: str) -> dict:
         ports["summary"] = {"USB-C": "1", "USB-A": "3", "HDMI": "1", "Audio": "1", "LAN": "1"}
         return ports
 
-    # Lenovo Legion
     if "legion" in m:
         ports["left"] = [
             ("🔌", "amber", "DC-in Jack", "170W AC Adapter"),
