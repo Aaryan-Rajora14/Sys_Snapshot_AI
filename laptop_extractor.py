@@ -167,13 +167,11 @@ def _extract_devices(text: str) -> dict:
             if val and val not in devices["input"]:
                 devices["input"].append(val)
 
-    # USB — look for USB controller mentions anywhere
     for m in re.finditer(r"(USB[\s\w\.\-]+Host Controller[^\n]*|USB[\s\d\.]+eXtensible[^\n]*)", text, re.IGNORECASE):
         val = m.group(1).strip()
         if val not in devices["usb"]:
             devices["usb"].append(val)
 
-    # Network — look for "Driver" lines near "Network" sections
     net_section = re.search(
         r"(Network Devices|DirectPlay Registered Service Providers).{0,200}",
         text, re.IGNORECASE | re.DOTALL
