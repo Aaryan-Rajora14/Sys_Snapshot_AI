@@ -364,7 +364,6 @@ def _extract_cpu_details(processor_str: str) -> dict:
     if ghz_m:
         cpu["ghz"] = ghz_m.group(1) + " GHz"
 
-    # Known boost speeds (approximate from well-known models)
     known_boost = {
         "i5-13500H": "4.7 GHz", "i7-13620H": "4.9 GHz", "i9-13900H": "5.4 GHz",
         "i5-12500H": "4.5 GHz", "i7-12700H": "4.7 GHz",
@@ -377,7 +376,6 @@ def _extract_cpu_details(processor_str: str) -> dict:
             cpu["boost"] = v
             break
 
-    # Known cache
     known_cache = {
         "i5-13500H": "18 MB", "i7-13620H": "24 MB", "i9-13900H": "24 MB",
         "i5-12500H": "18 MB", "i7-12700H": "24 MB",
