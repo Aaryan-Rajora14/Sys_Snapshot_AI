@@ -571,11 +571,9 @@ def parse_dxdiag(text: str) -> dict:
     gpu_blocks = _split_gpu_blocks(text)
     raw_gpus = [_extract_gpu_fields(b) for b in gpu_blocks]
 
-    # Sort: discrete first, integrated second
     discrete = [g for g in raw_gpus if _is_discrete_gpu(g.get("name", ""))]
     integrated = [g for g in raw_gpus if not _is_discrete_gpu(g.get("name", ""))]
 
-    # Primary = dedicated, Secondary = integrated
     if discrete and integrated:
         gpu1 = discrete[0]
         gpu2 = integrated[0]
