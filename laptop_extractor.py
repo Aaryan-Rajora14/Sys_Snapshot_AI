@@ -537,7 +537,6 @@ def parse_dxdiag(text: str) -> dict:
         m = re.search(pattern, text, re.IGNORECASE | re.MULTILINE)
         return m.group(1).strip() if m else default
 
-    # ── System fields ──────────────────────────────────────────────────────────
     data["machine_name"]  = g(r"Machine name:\s*(.+)")
     data["os"]            = g(r"Operating System:\s*(.+)")
     data["manufacturer"]  = g(r"System Manufacturer:\s*(.+)")
