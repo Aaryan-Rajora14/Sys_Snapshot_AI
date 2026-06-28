@@ -53,7 +53,7 @@ def _gpu_brand(name: str) -> str:
 def _is_discrete_gpu(name: str) -> bool:
     """Returns True if this GPU is likely a discrete/dedicated GPU."""
     n = name.lower()
-    # Dedicated GPUs
+    
     if "nvidia" in n: return True
     if "geforce" in n: return True
     if "quadro" in n: return True
@@ -61,7 +61,7 @@ def _is_discrete_gpu(name: str) -> bool:
     if "gtx" in n: return True
     if "radeon rx" in n: return True
     if "rx 6" in n or "rx 7" in n or "rx 5" in n: return True
-    # Integrated GPUs
+   
     if "intel" in n: return False
     if "uhd" in n: return False
     if "iris" in n: return False
