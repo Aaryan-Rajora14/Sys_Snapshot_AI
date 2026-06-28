@@ -1020,7 +1020,6 @@ def generate_html(data: dict) -> str:
     fps_aaa  = _est_fps("aaa",  gpu1_name_str)
     fps_gta  = _est_fps("gta",  gpu1_name_str)
 
-    # TDP estimates
     tdp_map = {
         "i5-13500H": "45W", "i7-13620H": "45W", "i9-13900H": "45W",
         "i5-12500H": "45W", "i7-12700H": "45W",
