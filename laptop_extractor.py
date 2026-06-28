@@ -692,11 +692,6 @@ def read_file(filepath: str) -> str:
                 continue
         raise RuntimeError("Could not read file — try saving as UTF-8.")
 
-
-# ─────────────────────────────────────────────
-#  GPU CARD HTML HELPER
-# ─────────────────────────────────────────────
-
 def _gpu_card_rows(g: dict) -> str:
     """Render all spec-rows for one GPU dict."""
     fields = [
