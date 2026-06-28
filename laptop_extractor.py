@@ -157,7 +157,6 @@ def _extract_devices(text: str) -> dict:
             if val and val not in devices["sound"]:
                 devices["sound"].append(val)
 
-    # Input devices
     input_section = re.search(
         r"Input Related Devices\s*[-]+(.+?)(?=\n[ \t]*[-]{5,}|\Z)",
         text, re.IGNORECASE | re.DOTALL
