@@ -11,6 +11,9 @@ Convert DxDiag reports into beautifully formatted, interactive HTML dashboards w
 
 ---
 
+The Old Railway link was Unavailable.
+Here's the new link - [syspec-snapshot-ai.up.railway.app](https://syspec-snapshot-ai.up.railway.app/)
+
 ## ✨ Key Features
 
 ### 🎯 Smart Hardware Detection
