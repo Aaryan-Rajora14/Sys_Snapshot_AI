@@ -40,7 +40,7 @@ This link is also available for 30 days i will try to provide new link every mon
 - **Drag & Drop Upload** — Simple file upload interface
 - **One-Click Generation** — No complex configuration needed
 
----
+-----
 
 ## 🚀 Quick Start
 
