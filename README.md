@@ -250,3 +250,5 @@ Website Images: -
 **Make Coding Great Again**
 
 The bad news is my free tier to host this website is over.
+
+You guys must download the repo in your system to use the web features. 
