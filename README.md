@@ -248,3 +248,5 @@ Website Images: -
 
 **Happy System Snapshotting! 🎉**
 **Make Coding Great Again**
+
+The bad news is my free tier to host this website is over.
