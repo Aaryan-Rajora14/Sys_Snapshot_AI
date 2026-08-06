@@ -253,4 +253,4 @@ The bad news is my free tier to host this website is over.
 
 You guys must download the repo in your system to use the web features. 
 
-I will try to find a better hosting service for all of my audience guys. 
+I will try to find a better hosting service for all of my audience.
