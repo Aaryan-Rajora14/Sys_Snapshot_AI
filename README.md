@@ -255,5 +255,3 @@ You guys must download the repo in your system to use the web features.
 
 Update - Render service link is available.
 New Website is coming.
-
-I wish there's Way i could have told you. 
