@@ -2347,11 +2347,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def _json(self, obj):
         body = json.dumps(obj).encode()
         self._send(200, "application/json", body)
-
 # ─────────────────────────────────────────────
 #  ENTRY POINT
 # ─────────────────────────────────────────────
-
 import os
 PORT = int(os.environ.get("PORT", 5000))
 
