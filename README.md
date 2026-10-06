@@ -252,6 +252,3 @@ Website Images: -
 The bad news is my free tier to host this website is over.
 
 You guys must download the repo in your system to use the web features. 
-
-Update - Render service link is available.
-New Website has Arrived.
