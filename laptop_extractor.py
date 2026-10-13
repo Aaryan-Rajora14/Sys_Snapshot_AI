@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 ╔══════════════════════════════════════════════════════╗
-║       LAPTOP SPEC EXTRACTOR  v6  —  With Claude      ║
+║       LAPTOP SPEC EXTRACTOR  v6 — Built With Claude  ║
 ║  Drop your DxDiag .txt or .docx → get a sick HTML    ║
 ╚══════════════════════════════════════════════════════╝
 
