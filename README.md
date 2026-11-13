@@ -5,7 +5,7 @@
 Convert DxDiag reports into beautifully formatted, interactive HTML dashboards with complete hardware documentation—**all with one click**.
 
 [![Python](https://img.shields.io/badge/Python-3.8%2B-brightgreen?style=flat-square&logo=python)](https://www.python.org/)
-[![Platform](https://img.shields.io/badge/Platform-Windows-0078D4?style=flat-square&logo=windows)](https://www.microsoft.com/windows)
+[![Platform.  ](https://img.shields.io/badge/Platform-Windows-0078D4?style=flat-square&logo=windows)](https://www.microsoft.com/windows)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 [![Code Size](https://img.shields.io/github/languages/code-size/Aaryan-Rajora14/Sys_Snapshot_AI?style=flat-square)](https://github.com/Aaryan-Rajora14/Sys_Snapshot_AI)
 
